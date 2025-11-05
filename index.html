@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Pathfinding Visualizer</title>
+    <style>
+        /* Base */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background-color: #111827; 
+            color: white; 
+            line-height: 1.6; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; width: 100%; }
+
+        /* Typography */
+        h4 {
+            font-family: 'SF Mono', 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #e2e8f0;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        strong {
+            font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 600;
+            color: #e2e8f0;
+            letter-spacing: -0.01em;
+        }
+
+        a {
+            color: #34d399;
+            text-decoration: none;
+            font-weight: 500;
+            position: relative;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: #6ee7b7;
+        }
+
+        a:after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: currentColor;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+        }
+
+        a:hover:after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+        
+        /* Standard paragraph style */
+        p { 
+            font-size: 1.25rem; 
+            color: #94a3b8; 
+            line-height: 1.6; 
+            font-weight: 300; 
+            margin-bottom: 1.5rem;
+        }
+
+        /* Hero */
+        .hero { position: relative; overflow: hidden; background: #0f172a; padding: 0; min-height: 100vh; display: flex; align-items: center; text-align: left; }
+
+        /* Full-bleed background image for the hero section */
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            /* background artwork (falls back to solid color) */
+            background-image: url('assets/Gemini_Generated_Image_v9s8m2v9s8m2v9s8.png');
+            background-size: cover;
+            background-position: center right;
+            background-repeat: no-repeat;
+            /* make the image clearly visible (boosted opacity) while keeping contrast */
+            opacity: 0.98;
+            /* remove any filters so the image appears natural */
+            filter: none;
+            z-index: 0;
+        }
+
+        /* Ensure hero content sits above decorative media */
+        .hero .container { position: relative; z-index: 3; }
+
+        /* Decorative video that floats to the right inside the hero */
+        .hero-video-wrap {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: clamp(280px, 45%, 720px);
+            max-height: 85vh;
+            /* keep video above the background image but below content */
+            z-index: 2;
+            pointer-events: none; /* let clicks pass through */
+            display: block;
+            /* no borders or clipping - show raw video */
+            overflow: visible;
+            border-radius: 0;
+        }
+
+        /* overlay that fades the video edges into the page background (left/right/top/bottom)
+           Using background gradients instead of masking so the video pixels are not altered. */
+        /* removed overlay pseudo-element so the video has no artificial borders/fades */
+
+        .hero-video {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 14px; /* remove rounded corners */
+            /* low opacity as requested */
+            opacity: 0.92;
+            /* subtle blur on the video itself */
+            filter: blur(1px);
+            /* don't scale the video - keep it natural */
+            transform: translateZ(0);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* On smaller screens reduce size so it doesn't overwhelm content */
+        @media (max-width: 900px) {
+            .hero-video-wrap { width: 48%; }
+        }
+
+        @media (max-width: 640px) {
+            .hero-video-wrap { display: none; } /* hide on small screens for clarity */
+        }
+        .hero h1 { font-size: 4.5rem; font-weight: 800; margin-bottom: 1.5rem; color: #e2e8f0; line-height: 1.1; max-width: 800px; }
+        .hero p { font-size: 1.5rem; color: #94a3b8; max-width: 600px; margin: 0 0 3rem 0; line-height: 1.6; font-weight: 300; }
+        .tech-tags { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: flex-start; margin-top: 1rem; }
+        .tech-tag { background-color: #1e293b; padding: 0.5rem 1.25rem; border-radius: 0.5rem; border: 1px solid #334155; transition: all 0.2s ease; }
+        .tech-tag:hover { background-color: #334155; transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); }
+
+        /* Sections */
+        section { padding: 6rem 0; width: 100%; margin-bottom: 0; }
+        h2 { 
+            font-size: 3rem; 
+            font-weight: 700; 
+            text-align: center; 
+            margin-bottom: 3.5rem; 
+            color: #34d399;
+            position: relative;
+            display: inline-block;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: -0.75rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background-color: #34d399;
+            border-radius: 2px;
+        }
+        h3 { 
+            font-size: 2rem; 
+            font-weight: 600; 
+            margin-bottom: 1.5rem; 
+            color: white; 
+        }
+
+        /* Project Overview */
+        .project-overview { background-color: #1f2937; }
+        .grid { display: grid; gap: 4rem; grid-template-columns: 1fr 1fr; align-items: start; max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+        .md-grid-cols-2 { grid-template-columns: repeat(1, 1fr); }
+        @media (min-width: 768px) { .md-grid-cols-2 { grid-template-columns: repeat(2, 1fr); } }
+        .project-overview .bg-gray-900 { background-color: #1e293b; padding: 2.5rem; border-radius: 0.5rem; height: 100%; border: 1px solid #334155; }
+        .project-overview h3 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; color: #e2e8f0; }
+
+        /* Algorithms */
+        /* Use auto-fit with a larger min width so cards become wider on desktop */
+        .algorithms-grid { display: grid; gap: 2.25rem; grid-template-columns: repeat(1, 1fr); }
+        @media (min-width: 768px) { .algorithms-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1100px) { .algorithms-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); } }
+
+        .algorithm-card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            padding: 2rem; /* increased padding */
+            min-height: 420px; /* taller cards */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform .28s ease, box-shadow .28s ease;
+            cursor: pointer;
+        }
+
+        .algorithm-card:hover { transform: translateY(-8px); border-color: #4b5563; box-shadow: 0 20px 40px rgba(2,6,23,0.45); }
+        .algorithm-card h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+        .algorithm-card p { margin-bottom: 1rem; }
+
+        /* How it works */
+        .how-it-works { 
+            background-color: #0f172a; 
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Container for scroll content and arrows */
+        .steps-container {
+            position: relative;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 5rem; /* Increased space for arrows */
+        }
+
+        /* Horizontal scrollable container */
+        .steps-grid {
+            display: flex;
+            gap: 2rem;
+            padding: 0.5rem 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+            margin: 0 auto;
+            padding-left: calc((100% - (400px * 3 + 4rem)) / 2); /* Center exactly 3 cards */
+        }
+
+        /* Demo video placed after the horizontal steps; responsive sizing */
+        .how-demo {
+            max-width: 1100px;
+            margin: 2.5rem auto 0;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .how-demo video {
+            width: 100%;
+            max-width: 1000px;
+            height: 560px; /* fixed height for consistent layout */
+            max-height: 60vh;
+            object-fit: cover;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 40px rgba(2,6,23,0.5);
+            background-color: #000;
+        }
+
+        @media (max-width: 1000px) {
+            .how-demo video { height: 420px; }
+        }
+
+        @media (max-width: 640px) {
+            .how-demo { padding: 0 1rem; }
+            .how-demo video { height: 260px; max-width: 100%; }
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .steps-grid::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Navigation Arrows */
+        .scroll-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3rem;
+            height: 3rem;
+            background-color: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            font-size: 1.5rem;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .scroll-arrow:hover {
+            background-color: rgba(30, 41, 59, 0.9);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .scroll-left {
+            left: 1rem;
+        }
+
+        .scroll-right {
+            right: 1rem;
+        }
+
+        /* Ensure consistent card width */
+        @media (min-width: 1200px) { 
+            .step {
+                min-width: 400px;
+                width: 400px;
+                flex: 0 0 auto;
+                scroll-snap-align: start;
+            }
+        }
+        @media (min-width: 768px) and (max-width: 1199px) {
+            .step {
+                min-width: 350px;
+                width: 350px;
+                flex: 0 0 auto;
+                scroll-snap-align: start;
+            }
+            .steps-grid {
+                padding-left: calc((100% - (350px * 3 + 4rem)) / 2);
+            }
+        }
+        @media (max-width: 767px) {
+            .step {
+                min-width: 300px;
+                width: 300px;
+                flex: 0 0 auto;
+                scroll-snap-align: start;
+            }
+            .steps-grid {
+                padding-left: 2rem;
+            }
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 480px; /* increased height */
+            padding: 3rem; /* increased padding */
+            background-color: rgba(15, 23, 42, 0.95); /* slightly lighter than page bg to form a card */
+            border-radius: 0.9rem;
+            border: 1px solid rgba(255,255,255,0.035);
+            position: relative;
+            overflow: hidden;
+            transition: transform .28s ease, box-shadow .28s ease;
+        }
+
+        .step:hover { transform: translateY(-12px); box-shadow: 0 36px 60px rgba(2,6,23,0.7); }
+
+        /* small badge in top-right for step number */
+        .step-number {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+            font-weight: 800;
+            color: #0f172a;
+            background: #34d399; /* accent badge color; subtle */
+            box-shadow: 0 10px 24px rgba(2,6,23,0.45);
+            font-size: 1.25rem;
+        }
+
+        .step.blue .step-number { background: rgba(96,165,250,1); }
+        .step.yellow .step-number { background: rgba(251,191,36,1); }
+        .step.red .step-number { background: rgba(248,113,113,1); }
+
+        .step-title {
+            font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+            line-height: 1.02;
+            font-weight: 800;
+            color: #f8fafc;
+            margin-bottom: 0.75rem;
+            text-align: left;
+        }
+
+        .step-desc {
+            max-width: 85%;
+            margin-bottom: 0.25rem;
+            text-align: left;
+        }
+
+        /* meta area pinned to bottom-left */
+        .step-meta {
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            opacity: 0.95;
+            margin-top: 1.25rem;
+        }
+
+        /* Technical Implementation - card layout (keeps existing colors) */
+        .tech-cards-grid { 
+            display: grid; 
+            gap: 2rem; 
+            grid-template-columns: repeat(3, 1fr);
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+        @media (max-width: 1024px) {
+            .tech-cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 640px) {
+            .tech-cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .tech-card {
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            background-color: #1e293b; /* Slightly lighter than the page background */
+            border: 1px solid #374151; 
+            border-radius: 1rem; 
+            overflow: hidden; 
+            box-shadow: 0 8px 20px rgba(2,6,23,0.6); 
+            transition: transform .28s ease, box-shadow .28s ease;
+            padding: 2rem;
+            min-height: 360px;
+        }
+        .tech-card:hover { 
+            transform: translateY(-6px); 
+            box-shadow: 0 20px 40px rgba(2,6,23,0.75); 
+            border-color: #4b5563; 
+        }
+        .tech-card .card-content { 
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .tech-card h3 { 
+            font-size: 1.5rem; 
+            font-weight: 700;
+            color: white; 
+            margin-bottom: 1rem;
+        }
+        .tech-card p { 
+            color: #94a3b8; 
+            font-size: 1rem; 
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .tech-card .card-meta { 
+            margin-top: auto;
+            padding-top: 1rem; 
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-media { 
+            display: none; /* We're not using media in this implementation */
+        }
+    .card-meta-list { 
+            list-style: none; 
+            margin: 0; 
+            padding: 0;
+            color: #64748b;
+        }
+    .card-meta-list li { 
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+    .card-meta-list li:before {
+            content: "•";
+            color: #34d399;
+            font-weight: bold;
+            margin-right: 0.75rem;
+        }
+
+        /* Footer Styles */
+        footer {
+            background-color: #1e293b;
+        }
+        
+        footer h4 {
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+
+        footer p {
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        footer p {
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        /* Utility classes kept */
+        .text-red-400 { color: #f87171; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-8 { margin-bottom: 2rem; }
+        .mb-12 { margin-bottom: 3rem; }
+        .py-16 { padding: 4rem 0; }
+        .px-4 { padding: 0 1rem; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .border { border: 1px solid; }
+        .border-gray-700 { border-color: #374151; }
+        .bg-gray-800 { background-color: #1f2937; }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>Maze Pathfinding Visualizer</h1>
+            <p>An interactive Python game that demonstrates how different pathfinding algorithms navigate through mazes to find the optimal route from start to destination.</p>
+            <div class="tech-tags">
+                <div class="tech-tag">
+                    <span class="text-green-400">Python</span>
+                </div>
+                <div class="tech-tag">
+                    <span class="text-blue-400">Pygame</span>
+                </div>
+                <div class="tech-tag">
+                    <span class="text-yellow-400">Algorithms</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decorative hero video (floats right, low opacity, blurred edges) -->
+        <div class="hero-video-wrap">
+            <video class="hero-video" autoplay muted loop playsinline src="assets/herosection1.mp4"></video>
+        </div>
+    </section>
+
+    <!-- Project Overview -->
+    <section class="project-overview">
+        <div class="container">
+            <h2 class="section-title">Project Overview</h2>
+                    <div class="grid md-grid-cols-2">
+                <div>
+                    <h3>What is this project?</h3>
+                    <p class="mb-6">This interactive maze game serves as an educational tool to visualize and understand different pathfinding algorithms. Players can watch in real-time as DFS, BFS, and A* algorithms navigate through randomly generated mazes, each with their unique approach to problem-solving.</p>
+                    <div class="feature-list">
+                        <div class="feature-item">
+                            <div class="feature-dot"></div>
+                            <span>Interactive maze generation</span>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-dot"></div>
+                            <span>Real-time algorithm visualization</span>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-dot"></div>
+                            <span>Performance comparison tools</span>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-dot"></div>
+                            <span>Educational explanations</span>
+                        </div>
+                    </div>
+                </div>
+                    <div class="bg-gray-900 p-6 rounded-lg border border-gray-700">
+                    <h3 class="text-green-400 font-semibold mb-4">Key Features</h3>
+                    <ul class="space-y-3">
+                        <li>Multiple maze generation algorithms</li>
+                        <li>Step-by-step algorithm execution</li>
+                        <li>Customizable maze size and complexity</li>
+                        <li>Performance metrics and statistics</li>
+                        <li>Interactive controls and settings</li>
+                        <li>Educational mode with explanations</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Algorithms Section -->
+    <section class="bg-gray-900 py-16">
+        <div class="container">
+            <h2 class="section-title">Pathfinding Algorithms</h2>
+                    <div class="algorithms-grid">
+                <!-- DFS Card -->
+                <div class="algorithm-card" onclick="toggleAlgorithm('dfs')" id="dfs-card">
+                    <h3 class="text-blue-400">Depth-First Search (DFS)</h3>
+                    <p>Explores as far as possible along each branch before backtracking</p>
+                    <div class="complexity"><strong>Complexity:</strong> Time: O(V+E), Space: O(V)</div>
+                    <div class="characteristics" id="dfs-details">
+                        <h4>Characteristics:</h4>
+                        <ul>
+                            <li>Uses stack (recursion)</li>
+                            <li>Not optimal</li>
+                            <li>Memory efficient</li>
+                            <li>Good for maze generation</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- BFS Card -->
+                <div class="algorithm-card" onclick="toggleAlgorithm('bfs')" id="bfs-card">
+                    <h3 class="text-blue-400">Breadth-First Search (BFS)</h3>
+                    <p>Explores all neighbors at current depth before moving to next depth</p>
+                    <div class="complexity"><strong>Complexity:</strong> Time: O(V+E), Space: O(V)</div>
+                    <div class="characteristics" id="bfs-details">
+                        <h4>Characteristics:</h4>
+                        <ul>
+                            <li>Uses queue</li>
+                            <li>Guarantees shortest path</li>
+                            <li>More memory usage</li>
+                            <li>Level-by-level exploration</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- A* Card -->
+                <div class="algorithm-card" onclick="toggleAlgorithm('astar')" id="astar-card">
+                    <h3 class="text-yellow-400">A* Algorithm</h3>
+                    <p>Uses heuristic function to guide search towards goal efficiently</p>
+                    <div class="complexity"><strong>Complexity:</strong> Time: O(b^d), Space: O(b^d)</div>
+                    <div class="characteristics" id="astar-details">
+                        <h4>Characteristics:</h4>
+                        <ul>
+                            <li>Uses priority queue</li>
+                            <li>Optimal with admissible heuristic</li>
+                            <li>Faster than BFS</li>
+                            <li>Requires heuristic function</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <div class="container" style="max-width: 100%; padding: 0;">
+            <h2 class="section-title">How It Works</h2>
+            <div class="steps-container">
+                <button class="scroll-arrow scroll-left" onclick="scrollSteps('left')">&larr;</button>
+                <button class="scroll-arrow scroll-right" onclick="scrollSteps('right')">&rarr;</button>
+                <div class="steps-grid">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">Generate Maze</h3>
+                    <p class="step-desc">Create a random maze with walls and open paths.</p>
+                    <div class="step-meta">Step 1</div>
+                </div>
+
+                <div class="step blue">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">Choose Algorithm</h3>
+                    <p class="step-desc">Select DFS, BFS, or A* and configure parameters for the search.</p>
+                    <div class="step-meta">Step 2</div>
+                </div>
+
+                <div class="step yellow">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">Visualize Search</h3>
+                    <p class="step-desc">Watch the algorithm explore the grid with animated node states and tracing.</p>
+                    <div class="step-meta">Step 3</div>
+                </div>
+
+                <div class="step red">
+                    <div class="step-number">4</div>
+                    <h3 class="step-title">Find Path</h3>
+                    <p class="step-desc">Observe the final path, compare performance, and tweak maze/algorithm settings.</p>
+                    <div class="step-meta">Step 4</div>
+                </div>
+            </div>
+        </div>
+
+                <!-- Demo video for How It Works (placed after the horizontal steps) -->
+                <div class="how-demo">
+                    <video controls playsinline preload="metadata" src="assets/herosection3.mp4">Your browser does not support the video element.</video>
+                </div>
+    </section>
+
+    <!-- Technical Implementation -->
+    <section class="bg-gray-900 py-16 mb-0">
+        <div class="container">
+            <h2 class="section-title">Technical Implementation</h2>
+            
+            <div class="space-y-12">
+                <!-- Architecture & Design -->
+                <div>
+                    <h3 class="text-4xl font-bold mb-6 text-white">Architecture & Design</h3>
+                    <p class="text-gray-300 mb-8">
+                        The application follows a modular, object-oriented architecture with clear separation of concerns:
+                    </p>
+                    
+                    <div class="tech-cards-grid">
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-xl text-purple-400 mb-3">Maze Generation</h3>
+                                <p class="text-gray-400">
+                                    Creates and manages the grid structure with customizable dimensions and obstacle placement algorithms
+                                    to generate diverse and challenging mazes for pathfinding visualization.
+                                </p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Recursive Division</li>
+                                        <li>Randomized Depth-First Search</li>
+                                        <li>Binary Tree Algorithm</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-xl text-blue-400 mb-3">Pathfinding Core</h3>
+                                <p class="text-gray-400">
+                                    Implements various search algorithms with optimized data structures for efficient path calculation
+                                    and analysis of different traversal strategies.
+                                </p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Depth-First Search (DFS)</li>
+                                        <li>Breadth-First Search (BFS)</li>
+                                        <li>A* Algorithm</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-xl text-green-400 mb-3">Visualization Engine</h3>
+                                <p class="text-gray-400">
+                                    Handles real-time rendering of the search process with smooth animations and interactive controls
+                                    to demonstrate algorithm behavior step-by-step.
+                                </p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Step-by-step visualization</li>
+                                        <li>Custom speed controls</li>
+                                        <li>Path tracing</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technology Stack -->
+                <div class="mt-16">
+                    <h3 class="text-4xl font-bold mb-8 text-white">Technology Stack</h3>
+                    
+                    <div class="tech-cards-grid">
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-lg text-yellow-400 mb-2">Python 3.9+</h3>
+                                <p class="text-gray-400 text-sm">Core programming language providing the foundation for algorithm implementation and performance.</p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Object-oriented</li>
+                                        <li>High performance</li>
+                                        <li>Extensive libraries</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-lg text-red-400 mb-2">Pygame</h3>
+                                <p class="text-gray-400 text-sm">2D graphics library for creating the interactive visualization interface and user controls.</p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Real-time rendering</li>
+                                        <li>Event handling</li>
+                                        <li>Cross-platform</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-lg text-blue-400 mb-2">NumPy</h3>
+                                <p class="text-gray-400 text-sm">Efficient numerical operations and array manipulations for grid-based calculations.</p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Fast array operations</li>
+                                        <li>Memory efficiency</li>
+                                        <li>Scientific computing</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+
+                        <div class="tech-card">
+                            <div class="card-content">
+                                <h3 class="font-bold text-lg text-green-400 mb-2">Matplotlib</h3>
+                                <p class="text-gray-400 text-sm">Data visualization for performance analysis and algorithm comparison metrics.</p>
+                                <div class="card-meta">
+                                    <ul class="card-meta-list">
+                                        <li>Performance charts</li>
+                                        <li>Algorithm comparison</li>
+                                        <li>Data analysis</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-media"></div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 border-t border-gray-700 mt-0">
+        <div class="container">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-16 py-8">
+                <!-- Left side: About -->
+                <div>
+                    <h4 class="text-white font-bold mb-1" style="font-size: 11px;">ABOUT</h4>
+                    <p class="text-gray-400 font-semibold" style="font-size: 11px;">A comprehensive tool for visualizing and understanding pathfinding algorithms through interactive maze generation and solution finding.</p>
+                </div>
+                
+                <!-- Right side: Key Features -->
+                <div>
+                    <h4 class="text-white font-bold mb-1" style="font-size: 11px;">KEY FEATURES</h4>
+                    <div class="grid grid-cols-2 gap-x-2">
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">1. Adjustable animation speed</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">2. Multiple algorithms (DFS, BFS, A*)</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">3. Step-by-step visualization</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">4. Performance metrics</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">5. Interactive grid editing</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">6. Algorithm comparisons</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">7. Color-coded states</p>
+                        <p class="text-gray-400 font-semibold" style="font-size: 11px; line-height: 1.2;">8. Educational explanations</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Credits -->
+            <div class="text-center py-3 border-t border-gray-800">
+                <p class="text-gray-400" style="font-size: 11px;">Built with passion for algorithms and problem-solving • Educational tool for understanding pathfinding</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Toggle algorithm details
+        function toggleAlgorithm(algorithm) {
+            const details = document.getElementById(`${algorithm}-details`);
+            const card = document.getElementById(`${algorithm}-card`);
+            
+            // Toggle the display of the details
+            if (details.style.display === 'none' || !details.style.display) {
+                details.style.display = 'block';
+                card.classList.add('ring-2', 'ring-green-400');
+            } else {
+                details.style.display = 'none';
+                card.classList.remove('ring-2', 'ring-green-400');
+            }
+        }
+
+        // Scroll steps horizontally
+        function scrollSteps(direction) {
+            const container = document.querySelector('.steps-grid');
+            const cardWidth = document.querySelector('.step').offsetWidth;
+            const gap = 32; // 2rem gap
+            const scrollAmount = cardWidth + gap;
+            
+            if (direction === 'left') {
+                container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+        }
+
+        // Update scroll arrows visibility based on scroll position
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.steps-grid');
+            const leftArrow = document.querySelector('.scroll-left');
+            const rightArrow = document.querySelector('.scroll-right');
+
+            function updateArrowVisibility() {
+                if (container.scrollLeft <= 0) {
+                    leftArrow.style.opacity = '0.5';
+                } else {
+                    leftArrow.style.opacity = '1';
+                }
+
+                if (container.scrollLeft >= container.scrollWidth - container.clientWidth) {
+                    rightArrow.style.opacity = '0.5';
+                } else {
+                    rightArrow.style.opacity = '1';
+                }
+            }
+
+            container.addEventListener('scroll', updateArrowVisibility);
+            updateArrowVisibility();
+        });
+    </script>
+</body>
+</html>

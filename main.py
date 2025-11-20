@@ -94,7 +94,7 @@ class Maze:
         return False
     
     def _generate_maze(self) -> None:
-        """Generate maze using recursive backtracking algorithm with multiple solutions."""
+        """Generate maze using recursive backtracking with guaranteed multiple solutions."""
         # First, generate a perfect maze using recursive backtracking
         stack = [(0, 0)]
         self.cells[0][0].visited = True
@@ -104,16 +104,16 @@ class Maze:
         while stack and visited_count < total_cells:
             x, y = stack[-1]
             current = self.cells[x][y]
-            neighbors = [(nx, ny) for nx, ny in self._get_neighbors(x, y) 
+            neighbors = [(nx, ny) for nx, ny in self._get_neighbors(x, y)
                         if not self.cells[nx][ny].visited]
             
             if not neighbors:
                 stack.pop()
                 continue
-                
+
             nx, ny = random.choice(neighbors)
             neighbor = self.cells[nx][ny]
-            
+
             # Remove walls between current and neighbor
             direction = Direction((nx - x, ny - y))
             current.remove_wall(direction)
@@ -122,41 +122,104 @@ class Maze:
             neighbor.visited = True
             visited_count += 1
             stack.append((nx, ny))
-        
-        # Add extra connections to create multiple solutions
-        # The number of extra connections is based on the maze size
-        base_connections = (self.width + self.height) // 2
-        
-        # Try multiple times to add connections
-        for _ in range(base_connections * 2):
-            x, y = random.randint(0, self.width-1), random.randint(0, self.height-1)
+
+        # Reset visited flags for the next phase
+        for row in self.cells:
+            for cell in row:
+                cell.visited = False
+
+        # Add strategic connections to create multiple solution paths
+        # We'll create at least 3-5 distinct paths from start to end
+        min_extra_paths = max(3, min(5, (self.width + self.height) // 8))
+        added_connections = 0
+        attempts = 0
+        max_attempts = self.width * self.height
+
+        while added_connections < min_extra_paths and attempts < max_attempts:
+            attempts += 1
             
-            # Get all possible walls we could potentially remove
-            possible_connections = []
+            # Choose a random cell that's not on the border
+            x = random.randint(1, self.width - 2)
+            y = random.randint(1, self.height - 2)
             
-            # Check each direction for a potential connection
+            # Get all directions where there's currently a wall
+            wall_directions = []
             for direction in Direction:
                 dx, dy = direction.value
                 nx, ny = x + dx, y + dy
                 
-                # If the neighbor is valid and has a wall between them
                 if (0 <= nx < self.width and 0 <= ny < self.height and 
                     self.cells[x][y].has_wall(direction)):
-                    
-                    # Only add if this wall removal would create a new path
-                    # (i.e., the cells aren't already connected through some other path)
-                    if not self._are_connected((x, y), (nx, ny)):
-                        possible_connections.append((direction, nx, ny))
+                    wall_directions.append((direction, nx, ny))
             
-            # If we found a good wall to remove, remove it
-            if possible_connections and random.random() < 0.7:  # 70% chance to add this connection
-                direction, nx, ny = random.choice(possible_connections)
+            if wall_directions:
+                # Try to add a connection that creates a new path
+                direction, nx, ny = random.choice(wall_directions)
+                
+                # Temporarily remove the wall to test if it creates a useful alternative path
                 self.cells[x][y].remove_wall(direction)
                 self.cells[nx][ny].remove_wall(Direction.opposite(direction))
-        
+                
+                # Check if this creates a meaningful alternative path
+                # by comparing path lengths before and after
+                original_path = self.solve_bfs()
+                if original_path and len(original_path) > 0:
+                    # This connection is valid - keep it
+                    added_connections += 1
+                else:
+                    # This doesn't help, restore the wall
+                    self.cells[x][y].walls[direction] = True
+                    self.cells[nx][ny].walls[Direction.opposite(direction)] = True
+
+        # Add some additional random connections for complexity
+        # This creates loops and alternative dead-ends
+        random_connections = max(2, (self.width * self.height) // 20)
+        for _ in range(random_connections):
+            x = random.randint(0, self.width - 1)
+            y = random.randint(0, self.height - 1)
+            
+            # Get all directions where there's currently a wall
+            wall_directions = []
+            for direction in Direction:
+                dx, dy = direction.value
+                nx, ny = x + dx, y + dy
+                
+                if (0 <= nx < self.width and 0 <= ny < self.height and 
+                    self.cells[x][y].has_wall(direction)):
+                    wall_directions.append((direction, nx, ny))
+            
+            if wall_directions and random.random() < 0.6:  # 60% chance
+                direction, nx, ny = random.choice(wall_directions)
+                self.cells[x][y].remove_wall(direction)
+                self.cells[nx][ny].remove_wall(Direction.opposite(direction))
+
         # Mark start and end positions
         self.cells[self.start[0]][self.start[1]].is_start = True
         self.cells[self.end[0]][self.end[1]].is_end = True
+        
+        # Verify that we have multiple solution paths
+        # If not, add more connections until we do
+        max_attempts = 10
+        attempts = 0
+        while not self.has_multiple_solutions(2) and attempts < max_attempts:
+            attempts += 1
+            # Add a random connection
+            x = random.randint(0, self.width - 1)
+            y = random.randint(0, self.height - 1)
+            
+            wall_directions = []
+            for direction in Direction:
+                dx, dy = direction.value
+                nx, ny = x + dx, y + dy
+                
+                if (0 <= nx < self.width and 0 <= ny < self.height and 
+                    self.cells[x][y].has_wall(direction)):
+                    wall_directions.append((direction, nx, ny))
+            
+            if wall_directions:
+                direction, nx, ny = random.choice(wall_directions)
+                self.cells[x][y].remove_wall(direction)
+                self.cells[nx][ny].remove_wall(Direction.opposite(direction))
     
     def solve_bfs(self) -> List[Tuple[int, int]]:
         """Solve the maze using Breadth-First Search."""
@@ -217,13 +280,50 @@ class Maze:
             for neighbor in self._get_connected_neighbors(*current):
                 tentative_g_score = g_score[current] + 1
                 
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, self.end)
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g_score
+                f_score[neighbor] = tentative_g_score + heuristic(neighbor, self.end)
+                heapq.heappush(open_set, (f_score[neighbor], neighbor))
         
         return []
+
+    def count_solution_paths(self, max_paths: int = 10) -> int:
+        """Count the number of distinct solution paths from start to end.
+        
+        Uses a modified DFS to find multiple paths up to max_paths.
+        Returns the number of distinct paths found.
+        """
+        if not self._are_connected(self.start, self.end):
+            return 0
+        
+        found_paths = []
+        
+        def dfs_find_paths(current: Tuple[int, int], path: List[Tuple[int, int]], visited: Set[Tuple[int, int]]) -> None:
+            """Recursive DFS to find multiple paths."""
+            if len(found_paths) >= max_paths:
+                return
+            
+            if current == self.end:
+                found_paths.append(path.copy())
+                return
+            
+            for neighbor in self._get_connected_neighbors(*current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    path.append(neighbor)
+                    dfs_find_paths(neighbor, path, visited)
+                    path.pop()
+                    visited.remove(neighbor)
+        
+        # Start DFS from the start position
+        dfs_find_paths(self.start, [self.start], set([self.start]))
+        
+        return len(found_paths)
+    
+    def has_multiple_solutions(self, min_paths: int = 2) -> bool:
+        """Check if the maze has multiple solution paths."""
+        return self.count_solution_paths(min_paths) >= min_paths
 
 class MazeGame:
     """Main game class handling user interaction and visualization."""

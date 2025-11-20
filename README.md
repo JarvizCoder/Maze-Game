@@ -1,6 +1,6 @@
 # Maze Solver & Visualizer
 
-This project is a comprehensive maze generation and solving tool. It features a fully functional desktop application built with Pygame that allows users to generate, navigate, and visualize the solving of mazes. Additionally, it includes the foundational structure for a web-based interface using React.
+This project is a comprehensive maze generation and solving tool. It features a fully functional desktop application built with Pygame that allows users to generate, navigate, and visualize the solving of mazes. Additionally, it includes the foundational structure for a pygame based UI design.
 
 ## Installation & Running
 
